@@ -82,9 +82,18 @@ extern "C"
  * MACROS
  */
 
+ /*********************************************************************
+ * TYPEDEFS
+ */
+ 
+
 /*********************************************************************
  * FUNCTIONS
  */
+
+void HalMicBufWrite( uint16 value);
+
+void filterAdcData(void);
 
 /*
  * Task Initialization for the BLE Application

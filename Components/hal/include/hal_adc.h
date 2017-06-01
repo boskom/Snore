@@ -117,26 +117,15 @@ extern "C"
 #define HAL_ADC_REF_AVDD          0x80    /* AVDD_SOC Pin Reference */
 #define HAL_ADC_REF_DIFF          0xc0    /* AIN7,AIN6 Differential Reference */
 #define HAL_ADC_REF_BITS          0xc0    /* Bits [7:6] */
-
-#define MIC_DATA_LEN          2
   
 /* ------------------------------------------------------------------------------------------------
 *                                           Typedefs
 * ------------------------------------------------------------------------------------------------
 */  
-typedef struct
-{
-  uint16 *bufferHead;
-  uint16 *bufferTail;
-  uint16 maxBufSize;
-  uint16 *pBuffer;
-} halMICBufControl_t;
 
 /**************************************************************************************************
  *                                        FUNCTIONS - API
  **************************************************************************************************/
-void HalMicBufWrite( uint16 value);
-void filterAdcData(void);
    
 /*
  * Initialize ADC Service with reference set to default value

@@ -55,7 +55,6 @@
 #include  "hal_types.h"
 #include  "hal_acc.h"
 #include  "osal.h"
-#include  "SnoreVibe.h"
 
 /**************************************************************************************************
  *                                            CONSTANTS
@@ -96,9 +95,6 @@
 static uint8 adcRef;
 #endif
 
-static uint16 MicBuf[200];                      // Mic Data buffer
-
-static halMICBufControl_t halMICBuf;
 
 /**************************************************************************************************
  * @fn      HalAdcInit
@@ -111,89 +107,10 @@ static halMICBufControl_t halMICBuf;
  **************************************************************************************************/
 void HalAdcInit (void)
 {
-  
-  halMICBuf.bufferHead = MicBuf;
-  halMICBuf.bufferTail = MicBuf + (sizeof (MicBuf) / sizeof( MicBuf[0]));
-  halMICBuf.maxBufSize = sizeof (MicBuf);
-  halMICBuf.pBuffer = MicBuf;
-  
-  
+    
 #if (HAL_ADC == TRUE)
   adcRef = HAL_ADC_REF_VOLT;
 #endif
-}
-/**************************************************************************************************
-* @fn          HalAdcBufWrite
-*
-* @brief       This function write Data to AccBuf.
-*
-* @return      None.
-*/
-void HalMicBufWrite( uint16 value)
-{
-  
-      *halMICBuf.pBuffer++ = value;
-          
-     if (halMICBuf.pBuffer >= halMICBuf.bufferTail)
-     {
-       osal_set_event( 0x03, ST_MIC_FULL_BUFFER);
-       halMICBuf.pBuffer = halMICBuf.bufferHead;
-     }
-}
-/**************************************************************************************************
-* @fn          filterAdcData
-*
-* @brief       This function filter mic data.
-*
-* @return      None.
-*/
-void filterAdcData(void)
-{    
-  uint16 currMAX = 0;
-//  uint32 sum = 0;
-  uint16 *next      = halMICBuf.bufferHead;
-  uint16 *nextWrite = halMICBuf.bufferHead;
- 
-    int i,j;
-
-      for(i=0;i<(sizeof (MicBuf) / sizeof( MicBuf[0]) / 5); i++) // filter 5 points find max
-      {
-        currMAX = *next;
-        for(j=0;j<4; j++)
-        {
-          *next++;
-          currMAX = MAX(currMAX,*next);
-        }
-          *next++;
-        *nextWrite++ = currMAX;
-      }
-        
-  next      = halMICBuf.bufferHead;
-  nextWrite = halMICBuf.bufferHead;
-  
-  uint8 rising =0, falling=0;
-      next += 2;
-  
-  for(i=0;i<(sizeof (MicBuf) / sizeof( MicBuf[0]) / 5); i++) // filter 5 points find max
-      {
-         if  ((*(next-1) < *next) && (*(next+1) < *next) && (*next > 3000))
-            {
-              if (*(next-2) < 200) 
-                 {
-                   rising++;
-                 }
-
-              if (*(next+2) < 200)
-                 {
-                  falling++;
-                 }
-            }
-         next +=1;
-      }
-  if (rising>3 || falling>3 ) 
-    {
-         osal_set_event( 0x03, ST_SNORING_DETECTED);
-    }
 }
  
 

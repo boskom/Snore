@@ -115,8 +115,7 @@
 
 // How often to perform sensor reads (milliseconds)
 #define ACC_DEFAULT_PERIOD                    1000
-#define MIC_DEFAULT_PERIOD                     100
-
+#define MIC_DEFAULT_PERIOD                       1
 
 // Constants for two-stage reading
 #define TEMP_MEAS_DELAY                       275   // Conversion time 250 ms
@@ -195,7 +194,18 @@
 /*********************************************************************
  * LOCAL VARIABLES
  */
-static uint8 sensorTag_TaskID;   // Task ID for internal task/event processing
+
+struct buffer
+{
+  uint16 *head;
+  uint16 *tail;
+  uint16 size;
+  uint16 *elem;
+  uint16 arrayMic[20*1000/MIC_DEFAULT_PERIOD];
+} micBuffer;
+
+
+static uint8 snoreVibe_TaskID;   // Task ID for internal task/event processing
 
 static gaprole_States_t gapProfileState = GAPROLE_INIT;
 
@@ -322,6 +332,104 @@ static gapRolesParamUpdateCB_t paramUpdateCB =
  */
 
 /*********************************************************************
+ * @fn      InitMicBuffer
+ *
+ * @brief   Init microphone buffer and microphone structure
+ *
+ * @param   
+ *                    
+ *
+ * @return  none
+ */
+void InitMicBuffer(void)
+{
+/*
+  halMICBuf.bufferHead = MicBuf;
+  halMICBuf.bufferTail = MicBuf + (sizeof (MicBuf) / sizeof( MicBuf[0]));
+  halMICBuf.maxBufSize = sizeof (MicBuf);
+  halMICBuf.pBuffer = MicBuf;
+*/
+}
+
+/**************************************************************************************************
+* @fn          HalAdcBufWrite
+*
+* @brief       This function write Data to AccBuf.
+*
+* @return      None.
+*/
+void HalMicBufWrite( uint16 value)
+{
+ /* 
+      *halMICBuf.pBuffer++ = value;
+          
+     if (halMICBuf.pBuffer >= halMICBuf.bufferTail)
+     {
+       osal_set_event( 0x03, ST_MIC_FULL_BUFFER);
+       halMICBuf.pBuffer = halMICBuf.bufferHead;
+     }
+  */
+}
+/**************************************************************************************************
+* @fn          filterAdcData
+*
+* @brief       This function filter mic data.
+*
+* @return      None.
+*/
+void filterAdcData(void)
+{ 
+  /*
+  uint16 currMAX = 0;
+//  uint32 sum = 0;
+  uint16 *next      = halMICBuf.bufferHead;
+  uint16 *nextWrite = halMICBuf.bufferHead;
+ 
+    int i,j;
+
+      for(i=0;i<(sizeof (MicBuf) / sizeof( MicBuf[0]) / 5); i++) // filter 5 points find max
+      {
+        currMAX = *next;
+        for(j=0;j<4; j++)
+        {
+          *next++;
+          currMAX = MAX(currMAX,*next);
+        }
+          *next++;
+        *nextWrite++ = currMAX;
+      }
+        
+  next      = halMICBuf.bufferHead;
+  nextWrite = halMICBuf.bufferHead;
+  
+  uint8 rising =0, falling=0;
+      next += 2;
+  
+  for(i=0;i<(sizeof (MicBuf) / sizeof( MicBuf[0]) / 5); i++) // filter 5 points find max
+      {
+         if  ((*(next-1) < *next) && (*(next+1) < *next) && (*next > 3000))
+            {
+              if (*(next-2) < 200) 
+                 {
+                   rising++;
+                 }
+
+              if (*(next+2) < 200)
+                 {
+                  falling++;
+                 }
+            }
+         next +=1;
+      }
+  if (rising>3 || falling>3 ) 
+    {
+         osal_set_event( 0x03, ST_SNORING_DETECTED);
+    }
+  
+  */
+}
+
+/*********************************************************************
  * @fn      SnoreVibe_Init
  *
  * @brief   Initialization function for the Simple BLE Peripheral App Task.
@@ -337,7 +445,7 @@ static gapRolesParamUpdateCB_t paramUpdateCB =
  */
 void SnoreVibe_Init( uint8 task_id )
 {
-  sensorTag_TaskID = task_id;
+  snoreVibe_TaskID = task_id;
 
   // Setup the GAP
   VOID GAP_SetParamValue( TGAP_CONN_PAUSE_PERIPHERAL, DEFAULT_CONN_PAUSE_PERIPHERAL );
@@ -424,7 +532,7 @@ void SnoreVibe_Init( uint8 task_id )
   resetCharacteristicValues();
 
   // Register for all key events - This app will handle all key events
-  RegisterForKeys( sensorTag_TaskID );
+  RegisterForKeys( snoreVibe_TaskID );
 
   // makes sure LEDs are off
   HalLedSet( (HAL_LED_1 | HAL_LED_2), HAL_LED_MODE_OFF );
@@ -454,7 +562,7 @@ void SnoreVibe_Init( uint8 task_id )
   HCI_EXT_ClkDivOnHaltCmd( HCI_EXT_ENABLE_CLK_DIVIDE_ON_HALT );
 
   // Setup a delayed profile startup
-  osal_set_event( sensorTag_TaskID, ST_START_DEVICE_EVT );
+  osal_set_event( snoreVibe_TaskID, ST_START_DEVICE_EVT );
 }
 
 /*********************************************************************
@@ -478,7 +586,7 @@ uint16 SnoreVibe_ProcessEvent( uint8 task_id, uint16 events )
   {
     uint8 *pMsg;
 
-    if ( (pMsg = osal_msg_receive( sensorTag_TaskID )) != NULL )
+    if ( (pMsg = osal_msg_receive( snoreVibe_TaskID )) != NULL )
     {
       sensorTag_ProcessOSALMsg( (osal_event_hdr_t *)pMsg );
 
@@ -531,7 +639,7 @@ uint16 SnoreVibe_ProcessEvent( uint8 task_id, uint16 events )
     if(accConfig != ST_CFG_SENSOR_ENABLE)
     {
       readAccData();
-      osal_start_timerEx( sensorTag_TaskID, ST_ACCELEROMETER_SENSOR_EVT, sensorAccPeriod );
+      osal_start_timerEx( snoreVibe_TaskID, ST_ACCELEROMETER_SENSOR_EVT, sensorAccPeriod );
     }
     else
     {
@@ -567,6 +675,7 @@ uint16 SnoreVibe_ProcessEvent( uint8 task_id, uint16 events )
   
   if ( events & ST_MIC_FULL_BUFFER )
   {
+//    HalLedSet(HAL_LED_1, HAL_LED_MODE_ON);
     filterAdcData();
     return (events ^ ST_MIC_FULL_BUFFER);
   }
@@ -574,7 +683,7 @@ uint16 SnoreVibe_ProcessEvent( uint8 task_id, uint16 events )
   if ( events & ST_MICROPHONE_SENSOR_EVT )
   {
       readAdcData();
-      osal_start_timerEx( sensorTag_TaskID, ST_MICROPHONE_SENSOR_EVT, sensorMicPeriod );
+      osal_start_timerEx( snoreVibe_TaskID, ST_MICROPHONE_SENSOR_EVT, sensorMicPeriod );
       
     return (events ^ ST_MICROPHONE_SENSOR_EVT);
   }
@@ -663,7 +772,7 @@ static void sensorTag_HandleKeys( uint8 shift, uint8 keys )
   {
     // Reset the system if side key is pressed for more than 3 seconds
     sysResetRequest = TRUE;
-    osal_start_timerEx( sensorTag_TaskID, ST_SYS_RESET_EVT, ST_SYS_RESET_DELAY );
+    osal_start_timerEx( snoreVibe_TaskID, ST_SYS_RESET_EVT, ST_SYS_RESET_DELAY );
 
     if (!testMode ) // Side key
     {
