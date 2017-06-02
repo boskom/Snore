@@ -83,6 +83,7 @@
 // How often to perform sensor reads (milliseconds)
 #define ACC_DEFAULT_PERIOD                    1000
 #define MIC_DEFAULT_PERIOD                       1
+#define MIC_BUFF_SECONDS                         5
 
 // Constants for two-stage reading
 #define TEMP_MEAS_DELAY                       275   // Conversion time 250 ms
@@ -170,8 +171,8 @@ struct buffer
   sample_t *tail;
   sample_t size;
   sample_t *elem;
-  sample_t array[20*1000/MIC_DEFAULT_PERIOD];
-} micBuffer;
+  sample_t array[MIC_BUFF_SECONDS*1000/MIC_DEFAULT_PERIOD];
+} *micBuffer;
 
 
 static uint8 snoreVibe_TaskID;   // Task ID for internal task/event processing
@@ -238,11 +239,11 @@ static bool   testMode = FALSE;
  * LOCAL FUNCTIONS
  */
 
-/*
-static void init(struct buffer *);
-static void write(struct buffer *, sample_t);
-static void detect_snoring(void);
-*/
+
+void init(struct buffer *);
+void write(struct buffer *, sample_t);
+void detect_snoring(void);
+
 
 static void sensorTag_ProcessOSALMsg( osal_event_hdr_t *pMsg );
 static void peripheralStateNotificationCB( gaprole_States_t newState );
@@ -317,7 +318,7 @@ static gapRolesParamUpdateCB_t paramUpdateCB =
  *
  * @return  none
  */
-/*
+
 void init(struct buffer *b)
 {
   
@@ -325,7 +326,7 @@ void init(struct buffer *b)
   b->head = b->elem = b->array;
   b->tail = b->head + b->size;
 }
-*/
+
 /**************************************************************************************************
 * @fn          write
 *
@@ -333,7 +334,7 @@ void init(struct buffer *b)
 *
 * @return      None.
 */
-/*
+
 void write(struct buffer *b,  sample_t value)
 {
   *b->elem++ = value;
@@ -341,21 +342,21 @@ void write(struct buffer *b,  sample_t value)
   {
     osal_set_event( 0x03, ST_MIC_FULL_BUFFER);
     b->elem = b->head;
+  }
 }
 
 void detect_snoring(void)
 { 
 
-  
+/*  
   if (rising>3 || falling>3 ) 
     {
          osal_set_event( 0x03, ST_SNORING_DETECTED);
     }
-  
+*/  
   
 }
 
-*/
 /*********************************************************************
  * @fn      SnoreVibe_Init
  *
@@ -467,11 +468,15 @@ void SnoreVibe_Init( uint8 task_id )
   // Initialize sensor drivers
   HalAccInit();
   osal_set_event( 0x03, ST_ACCELEROMETER_SENSOR_EVT); //ivan
-    P1DIR |= 0x80; // za mic treba ivan
-    P1 &= 0x7F;    // za mic treba ivan
-    MOTOR_SEL &= ~(MOTOR_BIT);    /* Set pin function to GPIO */
-    MOTOR_PORT &= ~(MOTOR_BIT);  /* SET LOW*/
-    MOTOR_DIR |= (MOTOR_BIT);    /* Set pin direction to Output */     
+
+  P1DIR |= 0x80; // za mic treba ivan
+  P1 &= 0x7F;    // za mic treba ivan
+  init(micBuffer);
+  
+  MOTOR_SEL &= ~(MOTOR_BIT);    /* Set pin function to GPIO */
+  MOTOR_PORT &= ~(MOTOR_BIT);  /* SET LOW*/
+  MOTOR_DIR |= (MOTOR_BIT);    /* Set pin direction to Output */     
+
   osal_set_event( 0x03, ST_MICROPHONE_SENSOR_EVT); //ivan
 
 
@@ -493,7 +498,7 @@ void SnoreVibe_Init( uint8 task_id )
 }
 
 /*********************************************************************
- * @fn      SensorTag_ProcessEvent
+ * @fn      SnoreVibe_ProcessEvent
  *
  * @brief   Simple BLE Peripheral Application Task event processor.  This function
  *          is called to process all events for the task.  Events
@@ -602,8 +607,7 @@ uint16 SnoreVibe_ProcessEvent( uint8 task_id, uint16 events )
   
   if ( events & ST_MIC_FULL_BUFFER )
   {
-//    HalLedSet(HAL_LED_1, HAL_LED_MODE_ON);
-//    detect_snoring();
+    detect_snoring();
     return (events ^ ST_MIC_FULL_BUFFER);
   }
   
@@ -883,14 +887,10 @@ void readAccData(void)
  */
 void readAdcData(void)
 {  
-  static uint16 mic;
-  mic = HalAdcRead (HAL_ADC_CHANNEL_6, HAL_ADC_RESOLUTION_14);  
+  static sample_t sample;
+  sample = HalAdcRead (HAL_ADC_CHANNEL_6, HAL_ADC_RESOLUTION_14);  
   
-    if (mic)
-  {
-    //HalMicBufWrite( mic);
-    //write(micBuffer, mic);
-  }
+  write(micBuffer, sample);
 }
 
 #if defined FEATURE_TEST
