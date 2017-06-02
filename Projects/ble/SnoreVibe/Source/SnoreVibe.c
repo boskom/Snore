@@ -5,45 +5,8 @@
  @brief This file contains the Sensor Tag sample application for use with the
         TI Bluetooth Low Energy Protocol Stack.
 
- Group: WCS, BTS
  Target Device: CC2540, CC2541
 
- ******************************************************************************
- 
- Copyright (c) 2012-2016, Texas Instruments Incorporated
- All rights reserved.
-
- IMPORTANT: Your use of this Software is limited to those specific rights
- granted under the terms of a software license agreement between the user
- who downloaded the software, his/her employer (which must be your employer)
- and Texas Instruments Incorporated (the "License"). You may not use this
- Software unless you agree to abide by the terms of the License. The License
- limits your use, and you acknowledge, that the Software may not be modified,
- copied or distributed unless embedded on a Texas Instruments microcontroller
- or used solely and exclusively in conjunction with a Texas Instruments radio
- frequency transceiver, which is integrated into your product. Other than for
- the foregoing purpose, you may not use, reproduce, copy, prepare derivative
- works of, modify, distribute, perform, display or sell this Software and/or
- its documentation for any purpose.
-
- YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
- PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
- NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
- TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
- NEGLIGENCE, STRICT LIABILITY, CONTRIBUTION, BREACH OF WARRANTY, OR OTHER
- LEGAL EQUITABLE THEORY ANY DIRECT OR INDIRECT DAMAGES OR EXPENSES
- INCLUDING BUT NOT LIMITED TO ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE
- OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, COST OF PROCUREMENT
- OF SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
- (INCLUDING BUT NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
-
- Should you have any questions regarding your right to use this Software,
- contact Texas Instruments Incorporated at www.TI.com.
-
- ******************************************************************************
- Release Name: ble_sdk_1.4.2.2
- Release Date: 2016-06-09 06:57:10
  *****************************************************************************/
 
 /*********************************************************************
@@ -88,14 +51,15 @@
 #include "magnetometerservice.h"
 #include "barometerservice.h"
 #include "gyroservice.h"
+
 #if defined FEATURE_TEST
-#include "testservice.h"
+  #include "testservice.h"
 #endif
+
 #include "simplekeys.h"
 #include "ccservice.h"
 
 // Sensor drivers
-#include "SnoreVibe.h"
 #include "hal_sensor.h"
 
 #include "hal_irtemp.h"
@@ -104,6 +68,9 @@
 #include "hal_mag.h"
 #include "hal_bar.h"
 #include "hal_gyro.h"
+
+#include "SnoreVibe.h"
+
 
 /*********************************************************************
  * MACROS
@@ -195,13 +162,15 @@
  * LOCAL VARIABLES
  */
 
+typedef uint16 sample_t;
+
 struct buffer
 {
-  uint16 *head;
-  uint16 *tail;
-  uint16 size;
-  uint16 *elem;
-  uint16 arrayMic[20*1000/MIC_DEFAULT_PERIOD];
+  sample_t *head;
+  sample_t *tail;
+  sample_t size;
+  sample_t *elem;
+  sample_t array[20*1000/MIC_DEFAULT_PERIOD];
 } micBuffer;
 
 
@@ -268,6 +237,13 @@ static bool   testMode = FALSE;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+
+/*
+static void init(struct buffer *);
+static void write(struct buffer *, sample_t);
+static void detect_snoring(void);
+*/
+
 static void sensorTag_ProcessOSALMsg( osal_event_hdr_t *pMsg );
 static void peripheralStateNotificationCB( gaprole_States_t newState );
 
@@ -277,7 +253,7 @@ static void readAccData( void );
 static void readAdcData( void );
 
 #if defined FEATURE_TEST
-static void testChangeCB( uint8 paramID );
+  static void testChangeCB( uint8 paramID );
 #endif
 static void ccChangeCB( uint8 paramID );
 static void ccUpdate( void );
@@ -332,7 +308,7 @@ static gapRolesParamUpdateCB_t paramUpdateCB =
  */
 
 /*********************************************************************
- * @fn      InitMicBuffer
+ * @fn      init
  *
  * @brief   Init microphone buffer and microphone structure
  *
@@ -341,94 +317,45 @@ static gapRolesParamUpdateCB_t paramUpdateCB =
  *
  * @return  none
  */
-void InitMicBuffer(void)
-{
 /*
-  halMICBuf.bufferHead = MicBuf;
-  halMICBuf.bufferTail = MicBuf + (sizeof (MicBuf) / sizeof( MicBuf[0]));
-  halMICBuf.maxBufSize = sizeof (MicBuf);
-  halMICBuf.pBuffer = MicBuf;
-*/
+void init(struct buffer *b)
+{
+  
+  b->size = sizeof(b->array) / sizeof(b->array[0]);
+  b->head = b->elem = b->array;
+  b->tail = b->head + b->size;
 }
-
+*/
 /**************************************************************************************************
-* @fn          HalAdcBufWrite
+* @fn          write
 *
 * @brief       This function write Data to AccBuf.
 *
 * @return      None.
 */
-void HalMicBufWrite( uint16 value)
+/*
+void write(struct buffer *b,  sample_t value)
 {
- /* 
-      *halMICBuf.pBuffer++ = value;
-          
-     if (halMICBuf.pBuffer >= halMICBuf.bufferTail)
-     {
-       osal_set_event( 0x03, ST_MIC_FULL_BUFFER);
-       halMICBuf.pBuffer = halMICBuf.bufferHead;
-     }
-  */
+  *b->elem++ = value;
+  if(b->elem >= b->tail)
+  {
+    osal_set_event( 0x03, ST_MIC_FULL_BUFFER);
+    b->elem = b->head;
 }
-/**************************************************************************************************
-* @fn          filterAdcData
-*
-* @brief       This function filter mic data.
-*
-* @return      None.
-*/
-void filterAdcData(void)
+
+void detect_snoring(void)
 { 
-  /*
-  uint16 currMAX = 0;
-//  uint32 sum = 0;
-  uint16 *next      = halMICBuf.bufferHead;
-  uint16 *nextWrite = halMICBuf.bufferHead;
- 
-    int i,j;
 
-      for(i=0;i<(sizeof (MicBuf) / sizeof( MicBuf[0]) / 5); i++) // filter 5 points find max
-      {
-        currMAX = *next;
-        for(j=0;j<4; j++)
-        {
-          *next++;
-          currMAX = MAX(currMAX,*next);
-        }
-          *next++;
-        *nextWrite++ = currMAX;
-      }
-        
-  next      = halMICBuf.bufferHead;
-  nextWrite = halMICBuf.bufferHead;
   
-  uint8 rising =0, falling=0;
-      next += 2;
-  
-  for(i=0;i<(sizeof (MicBuf) / sizeof( MicBuf[0]) / 5); i++) // filter 5 points find max
-      {
-         if  ((*(next-1) < *next) && (*(next+1) < *next) && (*next > 3000))
-            {
-              if (*(next-2) < 200) 
-                 {
-                   rising++;
-                 }
-
-              if (*(next+2) < 200)
-                 {
-                  falling++;
-                 }
-            }
-         next +=1;
-      }
   if (rising>3 || falling>3 ) 
     {
          osal_set_event( 0x03, ST_SNORING_DETECTED);
     }
   
-  */
+  
 }
 
+*/
 /*********************************************************************
  * @fn      SnoreVibe_Init
  *
@@ -676,7 +603,7 @@ uint16 SnoreVibe_ProcessEvent( uint8 task_id, uint16 events )
   if ( events & ST_MIC_FULL_BUFFER )
   {
 //    HalLedSet(HAL_LED_1, HAL_LED_MODE_ON);
-    filterAdcData();
+//    detect_snoring();
     return (events ^ ST_MIC_FULL_BUFFER);
   }
   
@@ -961,7 +888,8 @@ void readAdcData(void)
   
     if (mic)
   {
-    HalMicBufWrite( mic);
+    //HalMicBufWrite( mic);
+    //write(micBuffer, mic);
   }
 }
 

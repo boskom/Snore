@@ -55,7 +55,8 @@
 #include "hal_i2c.h"
 #include "hal_board_cfg.h"
 #include "osal.h"
-#include "SnoreVibe.h"
+
+#include "SnoreVibe_consts.h"
 
 /* ------------------------------------------------------------------------------------------------
 *                                           Constants

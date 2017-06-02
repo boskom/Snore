@@ -1,6 +1,6 @@
 /******************************************************************************
 
- @file  sensorTag.h
+ @file  snoreVibe.h
 
  @brief This file contains the Sensor Tag sample application definitions and
         prototypes.
@@ -45,9 +45,9 @@
  Release Name: ble_sdk_1.4.2.2
  Release Date: 2016-06-09 06:57:10
  *****************************************************************************/
-#include "hal_types.h"
-#ifndef SENSORTAG_H
-#define SENSORTAG_H
+
+#ifndef SNOREVIBE_H
+#define SNOREVIBE_H
 
 #ifdef __cplusplus
 extern "C"
@@ -57,6 +57,9 @@ extern "C"
 /*********************************************************************
  * INCLUDES
  */
+
+#include "hal_types.h"
+#include "snoreVibe_consts.h"
 
 /*********************************************************************
  * CONSTANTS
@@ -73,10 +76,6 @@ extern "C"
 #define ST_SYS_RESET_EVT                                 0x0080
 #define ST_MICROPHONE_SENSOR_EVT                         0x0100
 
-#define ST_ACCELEROMETER_FULL_BUFFER                     0x0200
-#define ST_MIC_FULL_BUFFER                               0x0400 
-#define ST_SNORING_DETECTED                              0x0800 
-#define ST_MOVE_DETECTED                                 0x1000 
   
 /*********************************************************************
  * MACROS
@@ -91,10 +90,7 @@ extern "C"
  * FUNCTIONS
  */
 
-void HalMicBufWrite( uint16 value);
-
-void filterAdcData(void);
-
+//extern void detect_snoring(void);
 /*
  * Task Initialization for the BLE Application
  */
@@ -117,4 +113,4 @@ extern uint16 sensorTag_test(void);
 }
 #endif
 
-#endif /* SENSORTAG_H */
+#endif /* SNOREVIBE_H */
